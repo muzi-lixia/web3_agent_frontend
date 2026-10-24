@@ -61,42 +61,8 @@ export function useChat() {
 
   const busy = useRef(false);
 
-  const send = async (raw: string, requestKey?: string) => {
-    const text = raw.trim();
-    if (!text || busy.current || mutation.isPending) return;
-
-    const store = useAppStore.getState();
-
-    // 没登录就别先往界面上写一条注定失败的消息，直接把登录弹窗拉出来
-    if (!store.mockMode && (!store.auth || store.auth.expiresAt <= Date.now())) {
-      store.openWallet();
-      return;
-    }
-
-    busy.current = true;
-
-    // 重发同一条消息时沿用原来的键：服务端要么回放上次结果，要么正在跑就拒掉，
-    // 不会把同一句话执行两轮。新消息才生成新键。
-    const idempotencyKey = requestKey ?? newId();
-
-    store.appendMessage({
-      id: newId(),
-      role: 'user',
-      content: text,
-      createdAt: Date.now(),
-      status: 'done',
-      requestKey: idempotencyKey,
-    });
-
-    const placeholderId = newId();
-    store.appendMessage({
-      id: placeholderId,
-      role: 'assistant',
-      content: '',
-      createdAt: Date.now(),
-      status: 'pending',
-    });
-
+  /** 发一轮并回填占位气泡。send 与 retry 只差「气泡是新建还是复用」。 */
+  const run = async (text: string, idempotencyKey: string, placeholderId: string) => {
     try {
       const { response, latencyMs, source } = await mutation.mutateAsync({
         text,
@@ -156,10 +122,75 @@ export function useChat() {
 
       // 401 说明 JWT 已失效：清掉登录态，让界面回到「需要登录」而不是假装还登着
       if (apiError.status === 401) useAppStore.getState().setAuth(null);
+    }
+  };
+
+  /** 没登录就别先往界面上写一条注定失败的消息，直接把登录弹窗拉出来。 */
+  const blocked = () => {
+    const { mockMode, auth, openWallet } = useAppStore.getState();
+    if (mockMode || (auth && auth.expiresAt > Date.now())) return false;
+    openWallet();
+    return true;
+  };
+
+  const send = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || busy.current || mutation.isPending || blocked()) return;
+
+    busy.current = true;
+    const store = useAppStore.getState();
+    const idempotencyKey = newId();
+
+    store.appendMessage({
+      id: newId(),
+      role: 'user',
+      content: text,
+      createdAt: Date.now(),
+      status: 'done',
+      requestKey: idempotencyKey,
+    });
+
+    const placeholderId = newId();
+    store.appendMessage({
+      id: placeholderId,
+      role: 'assistant',
+      content: '',
+      createdAt: Date.now(),
+      status: 'pending',
+    });
+
+    try {
+      await run(text, idempotencyKey, placeholderId);
     } finally {
       busy.current = false;
     }
   };
 
-  return { send, isSending: mutation.isPending };
+  /**
+   * 重试一条失败的助手消息：复用原来那对气泡，不再追加一条提问。
+   *
+   * 沿用原消息的幂等键 —— 上次可能只是客户端超时，服务端其实已经跑完（回放原答案）
+   * 或还在跑（拒绝）；换新键就等于把同一句话再执行一轮。
+   */
+  const retry = async (assistantId: string) => {
+    if (busy.current || mutation.isPending) return;
+
+    const store = useAppStore.getState();
+    const index = store.messages.findIndex((message) => message.id === assistantId);
+    const question = store.messages
+      .slice(0, index < 0 ? store.messages.length : index)
+      .reverse()
+      .find((message) => message.role === 'user');
+    if (!question || blocked()) return;
+
+    busy.current = true;
+    store.patchMessage(assistantId, { status: 'pending', content: '', error: null });
+    try {
+      await run(question.content, question.requestKey ?? newId(), assistantId);
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  return { send, retry, isSending: mutation.isPending };
 }

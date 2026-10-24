@@ -13,22 +13,9 @@ export function ChatPage() {
   const openWallet = useAppStore((state) => state.openWallet);
   const hasEarlier = useAppStore((state) => state.history.hasMore);
 
-  const { send, isSending } = useChat();
+  const { send, retry, isSending } = useChat();
   const { loadEarlier, isLoadingEarlier } = useLoadEarlier();
   const locked = !auth || auth.expiresAt <= Date.now();
-
-  const retryFrom = (assistantId: string) => {
-    const index = messages.findIndex((message) => message.id === assistantId);
-    const start = index < 0 ? messages.length - 1 : index - 1;
-    for (let cursor = start; cursor >= 0; cursor -= 1) {
-      const message = messages[cursor];
-      if (message.role === 'user') {
-        // 带上原消息的幂等键：上次可能是客户端超时，服务端其实已经跑完或还在跑
-        void send(message.content, message.requestKey);
-        return;
-      }
-    }
-  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -41,7 +28,7 @@ export function ChatPage() {
         loadingEarlier={isLoadingEarlier}
         onLoadEarlier={loadEarlier}
         onPrompt={(text) => void send(text)}
-        onRetry={retryFrom}
+        onRetry={(assistantId) => void retry(assistantId)}
       />
       <Composer
         onSend={(text) => void send(text)}
