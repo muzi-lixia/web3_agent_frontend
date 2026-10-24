@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 import { ApiError, api } from '@/lib/api';
+import { chatSignal } from '@/lib/inflight';
 import { mockChat } from '@/lib/mock';
 import { newId, useAppStore, type UiMessage } from '@/store/app-store';
 import type { ChatResponse } from '@/types';
@@ -9,6 +10,7 @@ import type { ChatResponse } from '@/types';
 interface SendVars {
   text: string;
   requestKey: string;
+  signal: AbortSignal;
 }
 
 interface SendResult {
@@ -19,7 +21,7 @@ interface SendResult {
 
 export function useChat() {
   const mutation = useMutation({
-    mutationFn: async ({ text, requestKey }: SendVars): Promise<SendResult> => {
+    mutationFn: async ({ text, requestKey, signal }: SendVars): Promise<SendResult> => {
       const { wallet, mockMode, auth } = useAppStore.getState();
 
       if (mockMode) {
@@ -51,6 +53,7 @@ export function useChat() {
         token: auth.token,
         knowledgeBaseId: useAppStore.getState().knowledgeBaseId,
         idempotencyKey: requestKey,
+        signal,
       });
       return { ...result, source: 'live' };
     },
@@ -95,7 +98,11 @@ export function useChat() {
     });
 
     try {
-      const { response, latencyMs, source } = await mutation.mutateAsync({ text, requestKey: idempotencyKey });
+      const { response, latencyMs, source } = await mutation.mutateAsync({
+        text,
+        requestKey: idempotencyKey,
+        signal: chatSignal(),
+      });
 
       // 服务端读到版本已变：这条答案是基于用户刚删掉的历史生成的，既不落库也不该上屏。
       // 占位气泡直接撤掉，界面上什么都不会出现 —— 用户刚点了清空，不该再弹提示。
@@ -127,6 +134,12 @@ export function useChat() {
               code: 'UNKNOWN',
               status: 0,
             });
+
+      // 用户在这期间清空了对话或删除了数据：这一轮连同气泡一起作废，不留错误提示。
+      if (apiError.code === 'ABORTED') {
+        useAppStore.getState().removeMessage(placeholderId);
+        return;
+      }
 
       useAppStore.getState().patchMessage(placeholderId, {
         status: 'error',

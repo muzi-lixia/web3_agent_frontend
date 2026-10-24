@@ -2,6 +2,7 @@ import { App as AntApp, Popconfirm, Tooltip } from 'antd';
 import { ClearOutlined } from '@ant-design/icons';
 
 import { Chip } from '@/components/ui/atoms';
+import { cancelChat } from '@/lib/inflight';
 import { useClearConversation } from '@/hooks/use-history';
 import { conversationTitle, useAppStore, type UiMessage } from '@/store/app-store';
 
@@ -15,6 +16,7 @@ export function SessionHeader({ messages }: { messages: UiMessage[] }) {
   const loggedIn = Boolean(auth && auth.expiresAt > Date.now());
 
   const handleClear = async () => {
+    cancelChat();
     clearConversation();
     if (!loggedIn) {
       toast.success('本地记录已清空');

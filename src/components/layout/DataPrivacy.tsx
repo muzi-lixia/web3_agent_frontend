@@ -1,6 +1,7 @@
 import { App as AntApp, Popconfirm } from 'antd';
 
 import { SectionTitle } from '@/components/ui/atoms';
+import { cancelChat } from '@/lib/inflight';
 import { usePurgeData } from '@/hooks/use-history';
 import { useAppStore } from '@/store/app-store';
 
@@ -18,6 +19,8 @@ export function DataPrivacy() {
   const loggedIn = Boolean(auth && auth.expiresAt > Date.now());
 
   const handlePurge = async () => {
+    // 先把在飞的那一轮停掉，否则它会在删除之后再把答案写回库里。
+    cancelChat();
     try {
       const result = await purge();
       clearConversation();

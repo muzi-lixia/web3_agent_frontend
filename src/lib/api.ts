@@ -50,6 +50,12 @@ async function request<T>(
   const started = performance.now();
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), init?.timeoutMs ?? 90_000);
+  // 外部取消（清空对话）与超时共用一个信号，但两者要给出不同的错误。
+  const external = init?.signal;
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', () => controller.abort(), { once: true });
+  }
 
   try {
     const response = await fetch(`${BASE}${path}`, {
@@ -87,6 +93,9 @@ async function request<T>(
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof DOMException && error.name === 'AbortError') {
+      if (external?.aborted) {
+        throw new ApiError('请求已取消', { code: 'ABORTED', status: 0 });
+      }
       throw new ApiError('请求超时，后端未在预期时间内响应', {
         code: 'TIMEOUT',
         status: 0,
@@ -111,6 +120,7 @@ export interface ChatPayload {
   knowledgeBaseId?: string;
   /** 同一条消息重发时必须沿用同一个值，服务端据此只跑一轮并回放上次结果。 */
   idempotencyKey?: string;
+  signal?: AbortSignal;
 }
 
 export interface ChatResult {
@@ -125,6 +135,7 @@ export const api = {
   async chat(payload: ChatPayload): Promise<ChatResult> {
     const result = await request<ChatResponse>('/api/v1/chat', {
       method: 'POST',
+      signal: payload.signal,
       headers: bearer(payload.token),
       body: JSON.stringify({
         userMessage: payload.userMessage,
