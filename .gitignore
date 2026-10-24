@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+.env
+.env.local
+.DS_Store
+*.local
+.shot-profile
+.idea
+preview.html
+src/__preview.tsx

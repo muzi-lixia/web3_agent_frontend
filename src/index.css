@@ -1,0 +1,548 @@
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* 色板与字体对齐参照工程 web3-ai-copilot：深蓝黑底 + 单一薄荷绿强调色 */
+@theme {
+  --color-void: #0a0d12;
+  --color-surface: #11151c;
+  --color-panel: #11151c;
+  --color-panel-2: #161c25;
+  --color-panel-3: #1b222c;
+  --color-line: #222a35;
+  --color-line-strong: #2e3846;
+
+  --color-ink: #ffffff;
+  --color-ink-2: #e8eef5;
+  --color-ink-3: #b9c5d3;
+
+  --color-mint: #3fd68c;
+  --color-mint-soft: #7ce8b4;
+  --color-ok: #2ebd85;
+  --color-warn: #e8b339;
+  --color-danger: #f6465d;
+
+  /* 侧栏导航三态，取值同参照工程 .nav-item：中性灰蓝 → 悬停提亮 → 选中淡薄荷 */
+  --color-nav: #98a7b8;
+  --color-nav-hover: #e8eef5;
+  --color-nav-active: #b4efcd;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* 未引入 preflight，a 会回落到浏览器默认的蓝色链接色；颜色一律由上层决定 */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-void);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure,
+  blockquote,
+  dl,
+  dd {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  textarea {
+    border: 0;
+    background: transparent;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ::selection {
+    background: rgb(63 214 140 / 0.24);
+  }
+
+  /* 参照工程隐去滚动条外观、保留滚动能力 */
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility hairline {
+  border: 1px solid var(--color-line);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(63 214 140 / 0.45);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 0 4px rgb(63 214 140 / 0);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 钱包登录卡：版式取自参照工程 Login，尺寸按本项目正文档位放大 ───────── */
+.wallet-card {
+  position: relative;
+  width: 100%;
+  padding: 26px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  background: var(--color-panel);
+}
+
+.wallet-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--color-ink-3);
+  transition: color 0.15s;
+}
+
+.wallet-close:hover {
+  color: var(--color-ink);
+}
+
+.wallet-head {
+  margin: 4px 0 20px;
+  text-align: center;
+}
+
+.wallet-logo {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 12px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #3fd68c, #7ce8b4);
+  color: #04170f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wallet-head h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.wallet-head p {
+  font-size: 11px;
+  color: var(--color-ink-3);
+}
+
+.wallet-steps {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.wallet-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  background: var(--color-panel-2);
+  color: var(--color-ink-3);
+  font-size: 11.5px;
+}
+
+.wallet-step > span {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.wallet-step.done {
+  border-color: rgb(46 189 133 / 0.3);
+  color: var(--color-ink-2);
+}
+
+.wallet-step.active {
+  border-color: rgb(63 214 140 / 0.42);
+  background: rgb(63 214 140 / 0.13);
+  color: #b4efcd;
+}
+
+.wallet-siwe {
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+}
+
+.wallet-siwe-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel-2);
+  color: var(--color-ink-2);
+  font-size: 11px;
+}
+
+.wallet-siwe pre {
+  min-height: 130px;
+  margin: 0;
+  padding: 11px;
+  background: rgb(0 0 0 / 0.25);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wallet-tag {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid rgb(63 214 140 / 0.42);
+  border-radius: 5px;
+  background: rgb(63 214 140 / 0.13);
+  color: #6fe0a6;
+  font-size: 10px;
+}
+
+.wallet-addr {
+  margin-bottom: 10px;
+  color: var(--color-ink-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.wallet-foot {
+  margin-top: 11px;
+  color: var(--color-ink-3);
+  font-size: 11px;
+  text-align: center;
+}
+
+.wallet-note {
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid rgb(63 214 140 / 0.35);
+  border-radius: 9px;
+  background: rgb(63 214 140 / 0.07);
+  color: var(--color-ink-2);
+  font-size: 11.5px;
+  line-height: 1.75;
+}
+
+.wallet-note + .wallet-note {
+  margin-top: 12px;
+}
+
+.wallet-note strong {
+  flex: none;
+  color: var(--color-ink);
+}
+
+.wallet-note.warn {
+  border-color: rgb(232 179 57 / 0.3);
+  background: rgb(232 179 57 / 0.06);
+}
+
+.wallet-links {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--color-ink-3);
+}
+
+.wallet-links button {
+  color: var(--color-ink-3);
+  transition: color 0.15s;
+}
+
+.wallet-links button:hover {
+  color: var(--color-mint);
+}
+
+/* 弹窗壳交给卡片自己画：去掉 antd 的白底、阴影与内边距 */
+.wallet-modal .ant-modal-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wallet-modal .ant-modal-body {
+  padding: 0;
+}
+
+/* 助手回答的 markdown 排版：不加 typography 插件，手写一层足够克制的样式 */
+.md-body {
+  font-size: 13px;
+  line-height: 1.78;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.md-body > *:first-child {
+  margin-top: 0;
+}
+
+.md-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.md-body p {
+  margin: 0.55em 0;
+}
+
+.md-body strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.md-body em {
+  color: var(--color-ink-2);
+}
+
+.md-body a {
+  color: var(--color-mint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgb(63 214 140 / 0.35);
+}
+
+.md-body a:hover {
+  text-decoration-color: var(--color-mint);
+}
+
+.md-body ul,
+.md-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+.md-body ul {
+  list-style: disc;
+}
+
+.md-body ol {
+  list-style: decimal;
+}
+
+.md-body li {
+  margin: 0.22em 0;
+  padding-left: 0.1em;
+}
+
+.md-body li::marker {
+  color: var(--color-ink-3);
+}
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  margin: 1.2em 0 0.45em;
+  color: var(--color-ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  font-size: 13px;
+}
+
+.md-body code {
+  padding: 1px 5px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: rgb(255 255 255 / 0.04);
+  color: var(--color-mint-soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.md-body pre {
+  margin: 0.7em 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 0.28);
+}
+
+.md-body pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink-2);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.md-body blockquote {
+  margin: 0.7em 0;
+  padding: 0.1em 0 0.1em 0.85em;
+  border-left: 2px solid rgb(63 214 140 / 0.35);
+  color: var(--color-ink-2);
+}
+
+.md-body blockquote p {
+  margin: 0.3em 0;
+}
+
+.md-body hr {
+  margin: 1.1em 0;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.md-body table {
+  width: 100%;
+  margin: 0.7em 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.md-body th,
+.md-body td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--color-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-body th {
+  color: var(--color-ink-3);
+  font-weight: 500;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.md-body tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 侧栏菜单三态：取值与参照工程 .nav-item 一致（中性灰蓝 → 悬停提亮 → 选中淡薄荷） */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--color-nav);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.nav-item:hover {
+  background-color: var(--color-panel-2);
+  color: var(--color-nav-hover);
+}
+
+.nav-item.is-active {
+  background-color: rgba(63, 214, 140, 0.13);
+  color: var(--color-nav-active);
+}
