@@ -54,6 +54,9 @@ export interface HistoryItem {
   /** 该轮的工具轨迹，结构与 /chat 的 data.toolCalls 一致；没调工具时为 null。 */
   toolCalls?: ToolCallRecord[] | null;
   citations?: RagHit[];
+  /** 该轮创建的写操作任务，刷新后据此重建确认卡片。 */
+  taskId?: string | null;
+  intentPreview?: IntentPreview | null;
   createdAt: string;
 }
 
@@ -140,14 +143,6 @@ export interface TxIntent {
   to: string;
   value: string;
   data: string;
-  method: string;
-  meta: {
-    humanReadableSummary: string;
-    estimatedGasLimit: string;
-    riskTags: string[];
-    createdAt: number;
-    expiresAt: number;
-  };
 }
 
 export interface IntentPreview {
@@ -198,6 +193,7 @@ export interface WorkflowStatus {
   expireType: 'NONE' | 'EXPIRED_UNSIGNED' | 'EXPIRED_UNVERIFIED';
   siweAddressShort: string;
   txIntent: TxIntent | null;
+  txHash: string | null;
   errorCode: string | null;
   errorMsg: string | null;
   expiresAt: number;

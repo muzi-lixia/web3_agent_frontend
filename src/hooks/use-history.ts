@@ -9,6 +9,7 @@ import type { ClearResult, HistoryItem, PurgeResult } from '@/types';
 const PAGE_SIZE = 50;
 
 function toUiMessage(item: HistoryItem): UiMessage {
+  const hasTask = Boolean(item.taskId && item.intentPreview);
   return {
     id: `h-${item.id}`,
     role: item.role,
@@ -20,6 +21,10 @@ function toUiMessage(item: HistoryItem): UiMessage {
     toolCalls: item.toolCalls ?? [],
     data: { citations: item.citations ?? [] },
     steps: item.toolCalls?.length ?? 0,
+    // 写操作卡片凭 taskId 重建，状态在卡片里按服务端当前值现取
+    type: hasTask ? 'intent_confirm' : 'answer',
+    taskId: item.taskId ?? null,
+    intentPreview: item.intentPreview ?? null,
   };
 }
 

@@ -10,6 +10,7 @@ import type {
   PurgeResult,
   ReadyPayload,
   WalletRef,
+  WorkflowStatus,
 } from '@/types';
 
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
@@ -130,6 +131,45 @@ export interface ChatResult {
 
 const bearer = (token?: string | null): Record<string, string> =>
   token ? { authorization: `Bearer ${token}` } : {};
+
+/** 写链路：确认意图、查任务状态、上报广播哈希。状态只认后端，前端上报不推进任务。 */
+export const workflowApi = {
+  async confirm(token: string, taskId: string, accepted: boolean) {
+    const result = await request<{ status: 'ACCEPTED' | 'REJECTED' }>(
+      '/api/v1/intent/confirm',
+      {
+        method: 'POST',
+        timeoutMs: 15_000,
+        headers: bearer(token),
+        body: JSON.stringify({ taskId, accepted }),
+      },
+    );
+    return result.data;
+  },
+
+  async status(token: string, taskId: string) {
+    const result = await request<WorkflowStatus>(
+      `/api/v1/workflow/${encodeURIComponent(taskId)}`,
+      { timeoutMs: 20_000, headers: bearer(token) },
+    );
+    return result.data;
+  },
+
+  async report(
+    token: string,
+    taskId: string,
+    txHash: string,
+    status: 'broadcast' | 'confirmed' | 'failed' | 'replaced',
+  ) {
+    const result = await request<{ success: boolean; msg: string }>('/api/v1/tx/report', {
+      method: 'POST',
+      timeoutMs: 15_000,
+      headers: bearer(token),
+      body: JSON.stringify({ taskId, txHash, status }),
+    });
+    return result.data;
+  },
+};
 
 export const api = {
   async chat(payload: ChatPayload): Promise<ChatResult> {
