@@ -58,6 +58,8 @@ export function useTransferTask(taskId: string | null) {
   const [phase, setPhase] = useState<TxPhase>('confirm');
   const [txIntent, setTxIntent] = useState<TxIntent | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  /** 后端登记过的哈希。本地刚签完的名字后端可能还没收到，那种情况不值得继续轮询。 */
+  const [serverHash, setServerHash] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 首帧还没拿到服务端状态时先别让用户点：此时卡片上的「待确认」可能已经过期或被拒绝。 */
@@ -67,7 +69,10 @@ export function useTransferTask(taskId: string | null) {
     setPhase(PHASE_BY_STATE[status.state] ?? 'confirm');
     // 待签名参数只在 PREVIEW 下发，已广播后本地保留着，用于展示收款方和金额。
     if (status.txIntent) setTxIntent(status.txIntent);
-    if (status.txHash) setTxHash(status.txHash);
+    if (status.txHash) {
+      setTxHash(status.txHash);
+      setServerHash(status.txHash);
+    }
     setExpiresAt(status.expiresAt);
     // 服务端有结论就用它的；没有结论时保留本地提示（比如哈希上报失败），
     // 否则下一轮轮询会把那条提示冲掉，用户再也没机会看到。
@@ -95,9 +100,11 @@ export function useTransferTask(taskId: string | null) {
     };
   }, [taskId, token, apply]);
 
-  // 已广播的任务持续核对回执，直到结算或失败。
+  // 已广播的任务持续核对回执，直到结算或失败。过期但已经上报哈希的也要继续：
+  // 用户可能正是在过期之后才签的名，后端要靠回执把状态纠正回来。
   useEffect(() => {
-    if (phase !== 'submitted' || !taskId || !token) return;
+    if (!taskId || !token) return;
+    if (phase !== 'submitted' && !(phase === 'expired' && serverHash)) return;
     let alive = true;
     const timer = window.setInterval(() => {
       void workflowApi
@@ -113,7 +120,7 @@ export function useTransferTask(taskId: string | null) {
       alive = false;
       window.clearInterval(timer);
     };
-  }, [phase, taskId, token, apply]);
+  }, [phase, taskId, token, serverHash, apply]);
 
   /** 提交认可或拒绝。拒绝直接结束任务，不会生成任何链上动作。 */
   const confirm = useCallback(
@@ -184,14 +191,9 @@ export function useTransferTask(taskId: string | null) {
       try {
         await workflowApi.report(token, taskId, hash, 'broadcast');
       } catch (err) {
-        // 交易已经出去了，界面必须按已广播走。后端若已结案（E506）就不会再核对
-        // 这笔哈希，只能让用户自己去浏览器看结果，卡片上仍留着哈希和链接。
-        const closed = err instanceof ApiError && err.code === 'E506';
-        setError(
-          closed
-            ? '任务已过期，但交易可能已经广播，请到区块浏览器确认结果'
-            : `哈希上报失败（${describe(err)}），链上结果可能无法自动核对`,
-        );
+        // 交易已经出去了，界面必须按已广播走。后端结案后不再收哈希（E609），
+        // 这笔交易只能让用户自己去浏览器看结果，卡片上仍留着哈希和链接。
+        setError(`哈希上报失败（${describe(err)}），链上结果可能无法自动核对`);
       }
       setPhase('submitted');
     } catch (err) {
