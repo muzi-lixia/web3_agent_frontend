@@ -9,6 +9,7 @@ import {
   explorerTxUrl,
   formatClock,
   isValidAddress,
+  opLabel,
   shortHash,
 } from '@/lib/format';
 import type { IntentPreview } from '@/types';
@@ -111,10 +112,20 @@ export function IntentPreviewCard({
             )}
           </div>
         </div>
-        {(txIntent || txHash) && chainId && (
+        {preview.fromAddress && (
+          <div className="min-w-0 bg-panel/70 px-3.5 py-2.5">
+            <div className="text-[10px] text-ink-3">付款方</div>
+            <div className="mt-1 min-w-0 text-[13px]">
+              <MonoCopy value={preview.fromAddress} display={shortHash(preview.fromAddress)} />
+            </div>
+          </div>
+        )}
+        {(txIntent || txHash || preview.chainId) && (preview.chainId ?? chainId) && (
           <div className="bg-panel/70 px-3.5 py-2.5">
             <div className="text-[10px] text-ink-3">网络</div>
-            <div className="mt-1 text-[13px] text-ink">{chainMeta(chainId).name}</div>
+            <div className="mt-1 text-[13px] text-ink">
+              {chainMeta(preview.chainId ?? (chainId as number)).name}
+            </div>
           </div>
         )}
         {txHash && (
@@ -126,6 +137,19 @@ export function IntentPreviewCard({
           </div>
         )}
       </div>
+
+      {preview.evidence && preview.evidence.length > 0 && (
+        <div className="border-t border-line/60 px-3.5 py-2.5">
+          <div className="text-[10px] text-ink-3">判断依据</div>
+          <ul className="mt-1 space-y-1">
+            {preview.evidence.map((item, index) => (
+              <li key={index} className="font-mono text-[12px] text-ink">
+                持有 {item.actual} {item.symbol}，{opLabel(item.op)} {item.right} {item.symbol}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {riskTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 py-2.5">

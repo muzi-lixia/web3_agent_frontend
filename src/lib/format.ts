@@ -110,6 +110,19 @@ export function actionLabel(action?: string): string {
   return ACTION_LABELS[action] ?? action;
 }
 
+const OP_LABELS: Record<string, string> = {
+  gt: '大于',
+  gte: '不低于',
+  lt: '小于',
+  lte: '不高于',
+  eq: '等于',
+};
+
+export function opLabel(op?: string): string {
+  if (!op) return '';
+  return OP_LABELS[op] ?? op;
+}
+
 export function isValidAddress(value: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
 }

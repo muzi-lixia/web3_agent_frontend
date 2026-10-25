@@ -150,6 +150,19 @@ export interface IntentPreview {
   tokenSymbol: string;
   humanAmount: string;
   target: string;
+  /** 付款钱包地址，来自会话身份。 */
+  fromAddress?: string;
+  /** 交易所在网络编号。 */
+  chainId?: number | null;
+  /** 多步计划里条件成立的判断依据（余额、门槛）。 */
+  evidence?: IntentEvidence[];
+}
+
+export interface IntentEvidence {
+  symbol: string;
+  actual: string;
+  op: string;
+  right: string;
 }
 
 export type ChatResponseType = 'answer' | 'ask' | 'intent_confirm' | 'tx_preview';
