@@ -149,7 +149,7 @@ export function MessageItem({
     );
   }
 
-  if (message.status === 'pending') return <ThinkingMessage />;
+  if (message.status === 'pending') return <ThinkingMessage stage={message.stage} />;
 
   const typeChip = message.type ? TYPE_CHIP[message.type] : null;
   const notices = message.data?.notices ?? [];

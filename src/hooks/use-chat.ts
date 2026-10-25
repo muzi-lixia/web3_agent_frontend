@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRef } from 'react';
 
-import { ApiError, api } from '@/lib/api';
+import { ApiError, api, type ChatStage } from '@/lib/api';
 import { chatSignal } from '@/lib/inflight';
 import { mockChat } from '@/lib/mock';
 import { newId, useAppStore, type UiMessage } from '@/store/app-store';
@@ -11,6 +11,8 @@ interface SendVars {
   text: string;
   requestKey: string;
   signal: AbortSignal;
+  /** 服务端每报一个阶段就更新一次占位气泡，让它显示「在做什么」而不是只转圈。 */
+  onStage: (stage: ChatStage) => void;
 }
 
 interface SendResult {
@@ -21,7 +23,7 @@ interface SendResult {
 
 export function useChat() {
   const mutation = useMutation({
-    mutationFn: async ({ text, requestKey, signal }: SendVars): Promise<SendResult> => {
+    mutationFn: async ({ text, requestKey, signal, onStage }: SendVars): Promise<SendResult> => {
       const { wallet, mockMode, auth } = useAppStore.getState();
 
       if (mockMode) {
@@ -47,13 +49,14 @@ export function useChat() {
         });
       }
 
-      const result = await api.chat({
+      const result = await api.chatStream({
         userMessage: text,
         wallet,
         token: auth.token,
         knowledgeBaseId: useAppStore.getState().knowledgeBaseId,
         idempotencyKey: requestKey,
         signal,
+        onStage,
       });
       return { ...result, source: 'live' };
     },
@@ -68,6 +71,7 @@ export function useChat() {
         text,
         requestKey: idempotencyKey,
         signal: chatSignal(),
+        onStage: (stage) => useAppStore.getState().patchMessage(placeholderId, { stage }),
       });
 
       // 服务端读到版本已变：这条答案是基于用户刚删掉的历史生成的，既不落库也不该上屏。

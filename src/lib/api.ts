@@ -44,6 +44,61 @@ interface RequestResult<T> {
   status: number;
 }
 
+/** 一轮对话的阶段。后端只发标识，具体文案由界面决定。 */
+export type ChatStage = 'intent' | 'query' | 'plan' | 'write';
+
+function parseBody(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/** 把一次非 2xx 响应转成统一错误。正文已经读出来了，这里只管解释。 */
+function toApiError(response: Response, text: string): ApiError {
+  const body = (parseBody(text) ?? {}) as Partial<ApiErrorBody>;
+  return new ApiError(body.errorMsg || `请求失败（HTTP ${response.status}）`, {
+    code: body.errorCode || `HTTP_${response.status}`,
+    status: response.status,
+    // 后端只在明确可重试时置 true；429 是配额耗尽，语义上同样是「过一会儿再来」
+    retryable: body.retryable ?? (response.status === 429 || response.status >= 500),
+    traceId: response.headers.get('x-trace-id'),
+  });
+}
+
+/** 网络层失败的归类：取消、超时、连不上，三者对用户是不同的事。 */
+function mapFetchError(error: unknown, external?: AbortSignal | null): ApiError {
+  if (error instanceof ApiError) return error;
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    if (external?.aborted) {
+      return new ApiError('请求已取消', { code: 'ABORTED', status: 0 });
+    }
+    return new ApiError('请求超时，后端未在预期时间内响应', {
+      code: 'TIMEOUT',
+      status: 0,
+      retryable: true,
+    });
+  }
+  return new ApiError('无法连接后端服务，请确认本地 FastAPI 已启动', {
+    code: 'NETWORK',
+    status: 0,
+    retryable: true,
+  });
+}
+
+/** 解析一帧 SSE。心跳帧（以冒号开头）没有事件名，会被上游忽略。 */
+function parseFrame(frame: string): { event: string; data: string } {
+  let event = '';
+  let data = '';
+  for (const line of frame.split('\n')) {
+    if (line.startsWith('event: ')) event = line.slice(7);
+    else if (line.startsWith('data: ')) data = line.slice(6);
+  }
+  return { event, data };
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit & { timeoutMs?: number },
@@ -70,44 +125,12 @@ async function request<T>(
 
     const latencyMs = Math.round(performance.now() - started);
     const text = await response.text();
-    let payload: unknown = undefined;
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = text;
-      }
-    }
 
-    if (!response.ok) {
-      const body = (payload ?? {}) as Partial<ApiErrorBody>;
-      throw new ApiError(body.errorMsg || `请求失败（HTTP ${response.status}）`, {
-        code: body.errorCode || `HTTP_${response.status}`,
-        status: response.status,
-        // 后端只在明确可重试时置 true；429 是配额耗尽，语义上同样是「过一会儿再来」
-        retryable: body.retryable ?? (response.status === 429 || response.status >= 500),
-        traceId: response.headers.get('x-trace-id'),
-      });
-    }
+    if (!response.ok) throw toApiError(response, text);
 
-    return { data: payload as T, latencyMs, status: response.status };
+    return { data: parseBody(text) as T, latencyMs, status: response.status };
   } catch (error) {
-    if (error instanceof ApiError) throw error;
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      if (external?.aborted) {
-        throw new ApiError('请求已取消', { code: 'ABORTED', status: 0 });
-      }
-      throw new ApiError('请求超时，后端未在预期时间内响应', {
-        code: 'TIMEOUT',
-        status: 0,
-        retryable: true,
-      });
-    }
-    throw new ApiError('无法连接后端服务，请确认本地 FastAPI 已启动', {
-      code: 'NETWORK',
-      status: 0,
-      retryable: true,
-    });
+    throw mapFetchError(error, external);
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -131,6 +154,15 @@ export interface ChatResult {
 
 const bearer = (token?: string | null): Record<string, string> =>
   token ? { authorization: `Bearer ${token}` } : {};
+
+function chatBody(payload: ChatPayload): string {
+  return JSON.stringify({
+    userMessage: payload.userMessage,
+    knowledgeBaseId: payload.knowledgeBaseId ?? 'default',
+    ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+    ...(payload.wallet ? { wallet: payload.wallet } : {}),
+  });
+}
 
 /** 写链路：确认意图、查任务状态、上报广播哈希。状态只认后端，前端上报不推进任务。 */
 export const workflowApi = {
@@ -172,19 +204,85 @@ export const workflowApi = {
 };
 
 export const api = {
-  async chat(payload: ChatPayload): Promise<ChatResult> {
-    const result = await request<ChatResponse>('/api/v1/chat', {
-      method: 'POST',
-      signal: payload.signal,
-      headers: bearer(payload.token),
-      body: JSON.stringify({
-        userMessage: payload.userMessage,
-        knowledgeBaseId: payload.knowledgeBaseId ?? 'default',
-        ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
-        ...(payload.wallet ? { wallet: payload.wallet } : {}),
-      }),
-    });
-    return { response: result.data, latencyMs: result.latencyMs };
+  /**
+   * 逐帧读一轮对话。服务端先推 stage（进度），最后推 result（完整结论）；
+   * 推流之后的失败以 error 帧送达，不会再有 HTTP 错误码。
+   */
+  async chatStream(
+    payload: ChatPayload & { onStage?: (stage: ChatStage) => void },
+  ): Promise<ChatResult> {
+    const started = performance.now();
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
+    const external = payload.signal;
+    if (external) {
+      if (external.aborted) controller.abort();
+      else external.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+
+    try {
+      const response = await fetch(`${BASE}/api/v1/chat`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json', ...bearer(payload.token) },
+        body: chatBody(payload),
+      });
+      if (!response.ok) throw toApiError(response, await response.text());
+      if (!response.body) {
+        throw new ApiError('当前浏览器不支持流式响应', { code: 'STREAM', status: 0 });
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result: ChatResponse | null = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // 帧之间以空行分隔；最后一段可能不完整，留到下次拼。
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+        for (const frame of frames) {
+          const { event, data } = parseFrame(frame);
+          if (event === 'stage') {
+            payload.onStage?.((JSON.parse(data) as { stage: ChatStage }).stage);
+            continue;
+          }
+          if (event === 'result') {
+            result = JSON.parse(data) as ChatResponse;
+            continue;
+          }
+          if (event === 'error') {
+            const body = JSON.parse(data) as {
+              code: string;
+              message: string;
+              retryable?: boolean;
+            };
+            throw new ApiError(body.message, {
+              code: body.code,
+              status: 200,
+              retryable: body.retryable,
+              traceId: response.headers.get('x-trace-id'),
+            });
+          }
+        }
+      }
+
+      if (!result) {
+        throw new ApiError('连接中断，本轮没有收到结果', {
+          code: 'STREAM_INCOMPLETE',
+          status: 0,
+          retryable: true,
+        });
+      }
+      return { response: result, latencyMs: Math.round(performance.now() - started) };
+    } catch (error) {
+      throw mapFetchError(error, external);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   },
 
   /** 服务端会话记录。后端按 siwe_user_id 存一条线性对话，没有会话 id 概念。 */

@@ -10,6 +10,7 @@ import type {
   WalletRef,
 } from '@/types';
 import { isValidAddress, chainMeta } from '@/lib/format';
+import type { ChatStage } from '@/lib/api';
 
 export interface MessageError {
   code: string;
@@ -25,6 +26,8 @@ export interface UiMessage {
   content: string;
   createdAt: number;
   status: 'pending' | 'done' | 'error';
+  /** 这一轮当前走到哪一步。只在 pending 期间有意义，用来替代笼统的「正在处理」。 */
+  stage?: ChatStage;
   type?: ChatResponseType;
   data?: ChatData;
   toolCalls?: ToolCallRecord[];
