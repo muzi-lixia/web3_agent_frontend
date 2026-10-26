@@ -1,5 +1,7 @@
 # 链上智能 Agent 助手 · 前端控制台
 
+容器化部署：`.github/workflows/container.yml` 自动构建并发布到 `ghcr.io/muzi-lixia/web3_agent_frontend`。在仓库 Actions Variables 配置 `VITE_REOWN_PROJECT_ID`；服务器及 SSH 配置见后端仓库的 [生产部署指南](https://github.com/muzi-lixia/web3_agent_backend/blob/main/deployment/production/README.md)。`DEPLOY_ENABLED` 默认关闭，首次初始化服务器后再启用。
+
 对齐 `PRD V1.5` / `单 Agent 架构 v0.8` / `聊天接口完整调用序列 v2`。当前交付范围为 **V1a 只读链路**。
 
 ## 运行
