@@ -67,20 +67,17 @@ export function Composer({
           />
 
           <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenWallet}
-              className={clsx(
-                'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition',
-                wallet
-                  ? 'border-line-strong bg-white/[0.03] text-ink-2 hover:border-mint/30 hover:text-ink'
-                  : 'border-dashed border-line-strong text-ink-3 hover:border-mint/30 hover:text-ink-2',
-              )}
-              title={wallet ? wallet.address : '连接钱包'}
-            >
-              <WalletIcon className="size-3.5" />
-              {wallet ? `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : '未连接钱包'}
-            </button>
+            {wallet && (
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-strong bg-white/[0.03] px-2 text-[11.5px] text-ink-2 transition hover:border-mint/30 hover:text-ink"
+                title={wallet.address}
+              >
+                <WalletIcon className="size-3.5" />
+                {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
+              </button>
+            )}
 
             {wallet && (
               <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-white/[0.02] px-2 font-mono text-[10px] text-ink-3">
