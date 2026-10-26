@@ -1,25 +1,19 @@
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 
-import { ArrowUp, Spinner, WalletIcon } from '@/components/ui/marks';
-import { chainMeta } from '@/lib/format';
-import type { WalletRef } from '@/types';
+import { ArrowUp, Spinner } from '@/components/ui/marks';
 
 const MAX_LENGTH = 4000;
 
 export function Composer({
   onSend,
   isSending,
-  wallet,
   locked,
-  onOpenWallet,
 }: {
   onSend: (text: string) => void;
   isSending: boolean;
-  wallet: WalletRef | null;
   /** /chat 需要 Bearer，未登录时输入框仍然可写，但发送会先拉登录弹窗 */
   locked: boolean;
-  onOpenWallet: () => void;
 }) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -67,25 +61,6 @@ export function Composer({
           />
 
           <div className="mt-2 flex items-center gap-2">
-            {wallet && (
-              <button
-                type="button"
-                onClick={onOpenWallet}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-strong bg-white/[0.03] px-2 text-[11.5px] text-ink-2 transition hover:border-mint/30 hover:text-ink"
-                title={wallet.address}
-              >
-                <WalletIcon className="size-3.5" />
-                {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
-              </button>
-            )}
-
-            {wallet && (
-              <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-white/[0.02] px-2 font-mono text-[10px] text-ink-3">
-                {chainMeta(wallet.chainId).short}
-                <span className="text-ink-3/85">{wallet.chainId}</span>
-              </span>
-            )}
-
             <span className="ml-auto hidden text-[10px] text-ink-3 sm:block">
               Enter 发送 · Shift + Enter 换行
             </span>

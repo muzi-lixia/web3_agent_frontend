@@ -10,7 +10,6 @@ export function ChatPage() {
   const messages = useAppStore((state) => state.messages);
   const wallet = useAppStore((state) => state.wallet);
   const auth = useAppStore((state) => state.auth);
-  const openWallet = useAppStore((state) => state.openWallet);
   const hasEarlier = useAppStore((state) => state.history.hasMore);
 
   const { send, retry, isSending } = useChat();
@@ -33,9 +32,7 @@ export function ChatPage() {
       <Composer
         onSend={(text) => void send(text)}
         isSending={isSending}
-        wallet={wallet}
         locked={locked}
-        onOpenWallet={openWallet}
       />
     </div>
   );

@@ -1,17 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { MessageOutlined, BookOutlined, CloudUploadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { MonoCopy, SectionTitle, StatusDot } from '@/components/ui/atoms';
-import { Shield } from '@/components/ui/marks';
-import { chainMeta, formatRelative, truncateMiddle } from '@/lib/format';
-import { conversationTitle, useAppStore } from '@/store/app-store';
+import { chainMeta, truncateMiddle } from '@/lib/format';
+import { useAppStore } from '@/store/app-store';
 
 export function Sidebar({ onOpenWallet, onNavigate }: { onOpenWallet: () => void; onNavigate?: () => void }) {
-  const messages = useAppStore((state) => state.messages);
   const wallet = useAppStore((state) => state.wallet);
-  const auth = useAppStore((state) => state.auth);
-
-  const lastAt = messages.length > 0 ? messages[messages.length - 1].createdAt : null;
-  const synced = Boolean(auth && auth.expiresAt > Date.now());
 
   return (
     <aside className="flex h-full w-[268px] shrink-0 flex-col border-r border-line bg-panel">
@@ -77,34 +71,7 @@ export function Sidebar({ onOpenWallet, onNavigate }: { onOpenWallet: () => void
         ))}
       </nav>
 
-      <div className="mt-5 flex items-center justify-between px-3">
-        <SectionTitle>对话</SectionTitle>
-        <span className="font-mono text-[11.5px] text-ink-3">
-          {messages.length.toString().padStart(2, '0')} msg
-        </span>
-      </div>
-
-      <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <NavLink to="/" onClick={onNavigate} className="nav-item is-active flex-col items-stretch gap-1">
-          <span className="truncate">{conversationTitle(messages)}</span>
-          <span className="flex items-center gap-1.5 font-mono text-[11.5px] text-ink-3">
-            <StatusDot tone={synced ? 'ok' : 'warn'} />
-            {synced ? '已登录 · 服务端单会话' : '未登录 · 仅本地'}
-            {lastAt && <span className="ml-auto">{formatRelative(lastAt)}</span>}
-          </span>
-        </NavLink>
-      </div>
-
-      <div className="space-y-2 border-t border-line/80 px-3 py-3">
-        <div className="flex items-start gap-1.5 text-[11.5px] leading-relaxed text-ink-3">
-          <Shield className="mt-[1px] size-3 shrink-0 text-ok/80" />
-          后端不持有私钥，只输出未签名交易意图
-        </div>
-        <div className="flex items-center justify-between font-mono text-[11.5px] tracking-wide text-ink-3">
-          <span>V1a · READ ONLY</span>
-          <span>PRD 1.5</span>
-        </div>
-      </div>
+      <div className="flex-1" />
     </aside>
   );
 }
